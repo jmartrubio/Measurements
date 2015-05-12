@@ -8,7 +8,7 @@ saveVTK = 0;
 %deviated from the actual (0, 0) coordinate. I modify coords to adjust them
 
 % Loading data
-data = load ('finalstat.dat');
+data = load ('SR03.dat');
 x=data(:,1) +2.146897315979;
 y=data(:,2) +0.000969886779785156;
 u=data(:,3);
@@ -28,7 +28,7 @@ Wmatrix = makematrix(w);
 
 
 % Representation of Velocity vectors, and contours
-representaVec(Xgrid,Ygrid,Umatrix,Vmatrix);
+figVec = representaVec(Xgrid,Ygrid,Umatrix,Vmatrix);
 representa(Xgrid,Ygrid,Umatrix,Vmatrix,Wmatrix,'Ux','Uy','Uz');
 
 
@@ -92,7 +92,7 @@ end
 % Mass flow is determined as rho * UzMean * S [kg/s], WE CHANGE UNITS
 disp ('MASS FLOW [L/min] CONSIDERING FIXED CIRCLES'); %Calculated with circles centered in 0 0
 disp ('Radius           18mm        19mm        20mm        21mm        22mm        23mm        24mm        25mm')
-disp (strcat('Mass flow',32,32,32,32,num2str(8014.97/1000*60),32,32,32,32,num2str(8773.04/1000*60),32,32,32,32,num2str(9129.53/1000*60),32,32,32,32,num2str(9256.82/1000*60),32,32,32,32,num2str(9320.72/1000*60),32,32,32,32,num2str(9374.26/1000*60),32,32,32,32,num2str(9426.63/1000*60),32,32,32,32,num2str(9478.27/1000*60)));
+disp (strcat('Mass flow',' ' ,32,32,32,32,num2str(8014.97/1000*60),32,32,32,32,num2str(8773.04/1000*60),32,32,32,32,num2str(9129.53/1000*60),32,32,32,32,num2str(9256.82/1000*60),32,32,32,32,num2str(9320.72/1000*60),32,32,32,32,num2str(9374.26/1000*60),32,32,32,32,num2str(9426.63/1000*60),32,32,32,32,num2str(9478.27/1000*60)));
 disp('----------------------------------------');
 % Calculated with a treshold value of velocity
 disp ('MASS FLOW [L/min] CONSIDERING FIXED Z VELOCITY');

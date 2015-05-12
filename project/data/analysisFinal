@@ -1,0 +1,174 @@
+clear all;
+clc;
+close all;
+
+cd ~/OpenFOAM/javier-2.3.x/courses/Measurements/project/data/
+saveVTK = 0;
+%First of all, center of the actual cylinder was found to be a little
+%deviated from the actual (0, 0) coordinate. I modify coords to adjust them
+caso = 'SR03';
+method = '1';
+center= calculatedCenter(caso,method);
+
+
+% Loading data
+data = load (strcat(caso,'.dat'));
+x=data(:,1) -center(1);
+y=data(:,2) -center(2);
+u=data(:,3);
+v=data(:,4);
+w=data(:,5);
+
+
+% Cleaning data for proper matrix representation
+Y = y(1:58)';
+X = limpia(x);
+
+[Xgrid, Ygrid] = meshgrid(X, Y);
+
+Umatrix = makematrix(u);
+Vmatrix = makematrix(v);
+Wmatrix = makematrix(w);
+
+
+% Representation of Velocity vectors, and contours
+figVec = representaVec(Xgrid,Ygrid,Umatrix,Vmatrix);
+representa(Xgrid,Ygrid,Umatrix,Vmatrix,Wmatrix,'Ux','Uy','Uz');
+
+
+% Now calculating radial and tangential velocity
+for i=1:length(x)
+    r(i)=sqrt(x(i)^2 + y(i)^2);
+    phi(i)=atan2(y(i),x(i));
+    ur(i)=u(i)*cos(phi(i))+v(i)*sin(phi(i));
+    uphi(i)=-u(i)*sin(phi(i))+v(i)*cos(phi(i));   
+end
+
+% Creating matrix representation of data
+Phimatrix = makematrix(phi);
+URmatrix = makematrix(ur);
+UPHImatrix = makematrix(uphi);
+
+%Contour representation of velocity in cilindrical coords
+representa(Xgrid,Ygrid,URmatrix,UPHImatrix,Wmatrix,'Ur','Uphi','Uz');
+
+% 2D representation cyl coords
+fig2D = representa2D(r,ur,uphi,w);
+
+% Claculation of envelope curves. We cat the value at r=30 (rest of data is less meaningfull since less points are taken in the square)
+% We also remove the 0 values where no measurement was taken
+[renUrMin, renUrMax, urMin, urMax] = calcEnv(r,ur,0.5);
+[renUphiMin, renUphiMax, uphiMin, uphiMax] = calcEnv(r,uphi,0.5);
+[renUzMin, renUzMax, wMin, wMax] = calcEnv(r,w,0.5);
+
+% We add the envelopes to the existing plots
+figure (fig2D); hold on;
+plot (renUrMin,urMin,'--r','LineWidth',3); hold on;
+plot (renUrMax,urMax,'--r','LineWidth',3); hold on;
+plot (renUphiMin,uphiMin,'--b','LineWidth',3); hold on;
+plot (renUphiMax,uphiMax,'--b','LineWidth',3); hold on;
+plot (renUzMin,wMin,'--k','LineWidth',3); hold on;
+plot (renUzMax,wMax,'--k','LineWidth',3); hold on;
+
+% Now let's try to smooth the 3D plots by constructing a finer grid (10 times finer) and
+% interpolating with splines TAKES TOO MUCH TIME
+
+% Xfine=divide(X,3);
+% Yfine=divide(Y,3);
+% 
+% [Xgridfine, Ygridfine] = meshgrid(Xfine, Yfine);
+% 
+% URmatrixfine=interp2(Xgrid,Ygrid,URmatrix,Xgridfine,Ygridfine,'spline');
+% UPHImatrixfine=interp2(Xgrid,Ygrid,UPHImatrix,Xgridfine,Ygridfine,'spline');
+% Wmatrixfine=interp2(Xgrid,Ygrid,Wmatrix,Xgridfine,Ygridfine,'spline');
+% 
+% representa(Xgridfine,Ygridfine,URmatrixfine,UPHImatrixfine,Wmatrixfine,'Ur','Uphi','Uz');
+
+%Saving vtk file to open it in paraview
+
+if saveVTK
+    savevtk(X,Y,Umatrix,Vmatrix,Wmatrix,'U',Phimatrix);
+end
+
+
+% With Paraview mass flow can easily be calculated several ways. 
+% Since rho is not known i express it in L/min
+% Mass flow is determined as rho * UzMean * S [kg/s], WE CHANGE UNITS
+disp ('MASS FLOW [L/min] CONSIDERING FIXED CIRCLES'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm        19mm        20mm        21mm        22mm        23mm        24mm        25mm')
+disp (strcat('Mass flow',' ' ,32,32,32,32,num2str(8014.97/1000*60),32,32,32,32,num2str(8773.04/1000*60),32,32,32,32,num2str(9129.53/1000*60),32,32,32,32,num2str(9256.82/1000*60),32,32,32,32,num2str(9320.72/1000*60),32,32,32,32,num2str(9374.26/1000*60),32,32,32,32,num2str(9426.63/1000*60),32,32,32,32,num2str(9478.27/1000*60)));
+disp('----------------------------------------');
+% Calculated with a treshold value of velocity
+disp ('MASS FLOW [L/min] CONSIDERING FIXED Z VELOCITY');
+disp ('zVelocity      0.5m/s      0.6m/s      0.7m/s      0.8m/s      0.9m/s    1.0m/s      1.1m/s      1.2m/s')
+disp (strcat('Mass flow',32,32,32,32,num2str(9275.17/1000*60),32,32,32,32,num2str(9252.73/1000*60),32,32,32,32,num2str(9234.24/1000*60),32,32,32,32,num2str(9218.16/1000*60),32,32,32,32,num2str(9205.82/1000*60),32,32,32,32,num2str(9194.5/1000*60),32,32,32,32,num2str(9183.21/1000*60),32,32,32,32,num2str(9172.17/1000*60)));
+disp('----------------------------------------');
+% Calculation of swirl number:
+% There are several definition. First attemp will be just considering the
+% mean fluxes in num and denom (see formula). That corresponds to a
+% surface integral Int1 = surfaceInt(var1) and Int2=surfaceInt(var2), where
+% S =  Int1/(Rref Int2)
+% var1 and var2 are calculated in paraview and results are different for
+% several maximum radius considered in the calculation from 18 to 25mm
+Rref=18;% (All variables are storaged in mm)
+disp ('SWIRL NUMBER DIFFERENT CIRCLES'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm       19mm       20mm       21mm      22mm       23mm       24mm       25mm')
+disp (strcat('SwirlNumber',32,32,32,32,num2str(831580/71020.2/Rref),32,32,32,32,num2str(915086/76369.7/Rref),32,32,32,32,num2str(938161/77745.4/Rref),32,32,32,32,num2str(942108/77965.1/Rref),32,32,32,32,num2str(942833/78003.6/Rref),32,32,32,32,num2str(943236/78024.5/Rref),32,32,32,32,num2str(943622/78043.4/Rref),32,32,32,32,num2str(944014/78061/Rref)));
+
+% We could compare the values to those obtained from calculations only in
+% lines, in four possibilities x=0+ x=0- y=0+ y=0-
+
+
+disp('----------------------------------------');
+disp('----------------------------------------');
+
+%Case 1 on y=0: from x=0 to x=30
+r1=X(29:59);
+uphi1=UPHImatrix(31,29:59);
+uz1=Wmatrix(31,29:59);
+figure;
+plot(r1,uphi1,'r'); hold on;
+plot (r1,uz1,'b');
+disp ('SWIRL NUMBER DIFFERENT CIRCLES case1'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm       19mm       20mm       21mm      22mm       23mm       24mm       25mm')
+disp (strcat('SwirlNumber',32,32,32,32,num2str(S(uz1,uphi1,r1,18,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,19,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,20,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,21,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,22,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,23,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,24,Rref)),32,32,32,32,num2str(S(uz1,uphi1,r1,25,Rref))));
+
+disp('----------------------------------------');
+%Case 2 on y=0: from x=-30 to x=0
+r2=-(X(1:28));
+uphi2=UPHImatrix(31,1:28);
+uz2=Wmatrix(31,1:28);
+figure;
+plot(r2,uphi2,'r'); hold on;
+plot (r2,uz2,'b');
+disp ('SWIRL NUMBER DIFFERENT CIRCLES case2'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm       19mm       20mm       21mm      22mm       23mm       24mm       25mm')
+disp (strcat('SwirlNumber',32,32,32,32,num2str(S(uz2,uphi2,r2,18,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,19,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,20,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,21,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,22,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,23,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,24,Rref)),32,32,32,32,num2str(S(uz2,uphi2,r2,25,Rref))));
+disp('----------------------------------------');
+%Case 3 on x=0: from y=0 to y=30
+r3=(Y(31:58));
+uphi3=UPHImatrix(31:58,29);
+uz3=Wmatrix(31:58,29);
+figure;
+plot(r3,uphi3,'r'); hold on;
+plot (r3,uz3,'b');
+disp ('SWIRL NUMBER DIFFERENT CIRCLES case3'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm       19mm       20mm       21mm      22mm       23mm       24mm       25mm')
+disp (strcat('SwirlNumber',32,32,32,32,num2str(S(uz3,uphi3,r3,18,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,19,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,20,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,21,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,22,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,23,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,24,Rref)),32,32,32,32,num2str(S(uz3,uphi3,r3,25,Rref))));
+disp('----------------------------------------');
+%Case 4 on x=0: from y=0 to y=30
+r4=-(Y(1:30));
+uphi4=UPHImatrix(1:30,29);
+uz4=Wmatrix(1:30,29);
+figure;
+plot(r4,uphi4,'r'); hold on;
+plot (r4,uz4,'b');
+disp ('SWIRL NUMBER DIFFERENT CIRCLES case4'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm       19mm       20mm       21mm      22mm       23mm       24mm       25mm')
+disp (strcat('SwirlNumber',32,32,32,32,num2str(S(uz4,uphi4,r4,18,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,19,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,20,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,21,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,22,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,23,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,24,Rref)),32,32,32,32,num2str(S(uz4,uphi4,r4,25,Rref))));
+disp('----------------------------------------');
+disp('----------------------------------------');
+%Mean of the four cases
+disp ('SWIRL NUMBER DIFFERENT CIRCLES Mean'); %Calculated with circles centered in 0 0
+disp ('Radius           18mm       19mm       20mm       21mm      22mm       23mm       24mm       25mm')
+disp (strcat('SwirlNumber',32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,18,Rref)+S(uz2,uphi2,r2,18,Rref)+S(uz3,uphi3,r3,18,Rref)+S(uz4,uphi4,r4,18,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,19,Rref)+S(uz2,uphi2,r2,19,Rref)+S(uz3,uphi3,r3,19,Rref)+S(uz4,uphi4,r4,19,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,20,Rref)+S(uz2,uphi2,r2,20,Rref)+S(uz3,uphi3,r3,20,Rref)+S(uz4,uphi4,r4,20,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,21,Rref)+S(uz2,uphi2,r2,21,Rref)+S(uz3,uphi3,r3,21,Rref)+S(uz4,uphi4,r4,21,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,22,Rref)+S(uz2,uphi2,r2,22,Rref)+S(uz3,uphi3,r3,22,Rref)+S(uz4,uphi4,r4,22,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,23,Rref)+S(uz2,uphi2,r2,23,Rref)+S(uz3,uphi3,r3,23,Rref)+S(uz4,uphi4,r4,23,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,24,Rref)+S(uz2,uphi2,r2,24,Rref)+S(uz3,uphi3,r3,24,Rref)+S(uz4,uphi4,r4,24,Rref))),32,32,32,32,num2str(0.25*(S(uz1,uphi1,r1,25,Rref)+S(uz2,uphi2,r2,25,Rref)+S(uz3,uphi3,r3,25,Rref)+S(uz4,uphi4,r4,25,Rref)))));

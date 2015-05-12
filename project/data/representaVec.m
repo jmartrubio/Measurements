@@ -1,6 +1,6 @@
-function representaVec(Xgrid,Ygrid,Umatrix,Vmatrix)
+function figVec =representaVec(Xgrid,Ygrid,Umatrix,Vmatrix)
 
-figure;
+figVec = figure();
 quiverwcolorbar(Xgrid,Ygrid,Umatrix,Vmatrix);
 
 caxis ([0,2.5]);

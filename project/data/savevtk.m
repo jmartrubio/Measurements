@@ -13,7 +13,7 @@
 % http://www.tinet.org/~sje/index_en.htm
 %
 
-function [fd,err]=savevtk(x,y,vx,vy,vz,VarName,alpha)
+function [fd,err]=savevtkNoPhi(x,y,vx,vy,vz,VarName,alpha)
 
 nx=length(x);
 ny=length(y);

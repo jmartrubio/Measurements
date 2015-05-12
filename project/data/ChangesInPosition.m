@@ -1,20 +1,19 @@
 clear all;
 clc;
-close all;
+% close all;
 
 cd ~/OpenFOAM/javier-2.3.x/courses/Measurements/project/data/
 saveVTK = 0;
-displX = [0 0.2 0.4 0.6 0.8 1 1.2 1.4 1.6 1.8 2];
-displY = 0;
-
+displX = [ -1.198795553691046  ];
+displY =  -0.050637582815586;
 %First of all, center of the actual cylinder was found to be a little
 %deviated from the actual (0, 0) coordinate. I modify coords to adjust them
 
 for mm=1:length(displX)
 
-data = load ('finalstat.dat');
-x=data(:,1) +displX(mm);
-y=data(:,2) +displY;
+data = load ('SR03.dat');
+x=data(:,1) -displX(mm);
+y=data(:,2) -displY;
 u=data(:,3);
 v=data(:,4);
 w=data(:,5);
